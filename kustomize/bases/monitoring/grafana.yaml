@@ -1,0 +1,302 @@
+---
+# Source: grafana/templates/podsecuritypolicy.yaml
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: phoenix-grafana
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'docker/default,runtime/default'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName:  'docker/default'
+    apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+    apparmor.security.beta.kubernetes.io/defaultProfileName:  'runtime/default'
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    # Default set from Docker, with DAC_OVERRIDE and CHOWN
+      - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'csi'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'RunAsAny'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      # Forbid adding the root group.
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      # Forbid adding the root group.
+      - min: 1
+        max: 65535
+  readOnlyRootFilesystem: false
+---
+# Source: grafana/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+  name: phoenix-grafana
+  namespace: patchme
+---
+# Source: grafana/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: phoenix-grafana
+  namespace: patchme
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+data:
+  admin-user: "YWRtaW4="
+  admin-password: "dm11VGFYalg1UU1RVHk9PQ=="
+  ldap-toml: ""
+---
+# Source: grafana/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: phoenix-grafana
+  namespace: patchme
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  grafana.ini: |
+    [analytics]
+    check_for_updates = true
+    [grafana_net]
+    url = https://grafana.net
+    [log]
+    mode = console
+    [paths]
+    data = /var/lib/grafana/
+    logs = /var/log/grafana
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning
+---
+# Source: grafana/templates/clusterrole.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+  name: phoenix-grafana-clusterrole
+rules: []
+---
+# Source: grafana/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: phoenix-grafana-clusterrolebinding
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+subjects:
+  - kind: ServiceAccount
+    name: phoenix-grafana
+    namespace: patchme
+roleRef:
+  kind: ClusterRole
+  name: phoenix-grafana-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: grafana/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: phoenix-grafana
+  namespace: patchme
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:      ['extensions']
+  resources:      ['podsecuritypolicies']
+  verbs:          ['use']
+  resourceNames:  [phoenix-grafana]
+---
+# Source: grafana/templates/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: phoenix-grafana
+  namespace: patchme
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: phoenix-grafana
+subjects:
+- kind: ServiceAccount
+  name: phoenix-grafana
+  namespace: patchme
+---
+# Source: grafana/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: phoenix-grafana
+  namespace: patchme
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: LoadBalancer
+  ports:
+    - name: service
+      port: 80
+      protocol: TCP
+      targetPort: 3000
+
+  selector:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+---
+# Source: grafana/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phoenix-grafana
+  namespace: patchme
+  labels:
+    helm.sh/chart: grafana-6.25.1
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: phoenix-grafana
+    app.kubernetes.io/version: "8.4.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+      app.kubernetes.io/instance: phoenix-grafana
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/instance: phoenix-grafana
+      annotations:
+        checksum/config: c30ea6f64e1ef753979989e13699fdc9cf0b07843962630d5a1a5b43b83610b3
+        checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        checksum/secret: 224095fa22f500da0882a4497c002ebbda088bb1c36640b23e4c6dd3a4b38a5c
+    spec:
+      
+      serviceAccountName: phoenix-grafana
+      automountServiceAccountToken: true
+      securityContext:
+        fsGroup: 472
+        runAsGroup: 472
+        runAsUser: 472
+      imagePullSecrets:
+        - name: ase-ecr-credentials
+      enableServiceLinks: true
+      containers:
+        - name: grafana
+          image: "grafana/grafana:8.4.2"
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: config
+              mountPath: "/etc/grafana/grafana.ini"
+              subPath: grafana.ini
+            - name: storage
+              mountPath: "/var/lib/grafana"
+          ports:
+            - name: service
+              containerPort: 80
+              protocol: TCP
+            - name: grafana
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: phoenix-grafana
+                  key: admin-user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: phoenix-grafana
+                  key: admin-password
+            - name: GF_PATHS_DATA
+              value: /var/lib/grafana/
+            - name: GF_PATHS_LOGS
+              value: /var/log/grafana
+            - name: GF_PATHS_PLUGINS
+              value: /var/lib/grafana/plugins
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+          resources:
+            {}
+      volumes:
+        - name: config
+          configMap:
+            name: phoenix-grafana
+        - name: storage
+          emptyDir: {}
